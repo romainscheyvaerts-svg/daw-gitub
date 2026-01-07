@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Instrument, User } from '../types';
@@ -179,7 +178,7 @@ const InstrumentCatalog: React.FC<InstrumentCatalogProps> = ({ user, onPurchase 
 
   const startVisualizer = () => {
       const canvas = canvasRef.current;
-      const analyzer = audioEngine.getPreviewAnalyzer();
+      const analyzer = audioEngine.previewAnalyzer;
       if (!canvas || !analyzer) return;
 
       const ctx = canvas.getContext('2d');
@@ -189,7 +188,7 @@ const InstrumentCatalog: React.FC<InstrumentCatalogProps> = ({ user, onPurchase 
       const dataArray = new Uint8Array(bufferLength);
 
       const draw = () => {
-          if (!audioEngine.getPreviewAnalyzer()) {
+          if (!audioEngine.previewAnalyzer) {
              cancelAnimationFrame(animationRef.current);
              return;
           }

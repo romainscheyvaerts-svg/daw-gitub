@@ -7,7 +7,9 @@ export enum TrackType {
   BUS = 'BUS',
   SEND = 'SEND',
   SAMPLER = 'SAMPLER',
-  DRUM_RACK = 'DRUM_RACK'
+  DRUM_RACK = 'DRUM_RACK',
+  DRUM_SAMPLER = 'DRUM_SAMPLER',
+  MELODIC_SAMPLER = 'MELODIC_SAMPLER'
 }
 
 export type ViewType = 'ARRANGEMENT' | 'MIXER' | 'AUTOMATION' | 'PIANO_ROLL';
@@ -72,7 +74,6 @@ export interface PendingUpload {
 
 export type AuthStage = 'LOGIN' | 'REGISTER' | 'VERIFY_EMAIL' | 'FORGOT_PASSWORD';
 
-// FIXED: Restored full list of internal plugins to match AudioEngine and UI requirements
 export type PluginType = 
   | 'REVERB' 
   | 'DELAY' 

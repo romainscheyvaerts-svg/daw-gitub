@@ -1,7 +1,7 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import { useDAW } from '../context/DAWContext';
-import { Track, TrackType, TrackSend } from '../types';
+import { Track, TrackType, TrackSend, PluginInstance, PluginType } from '../types';
 import { audioEngine } from '../engine/AudioEngine';
 import { SmartKnob } from './SmartKnob';
 import { getValidDestinations, getRouteLabel } from './RoutingManager';
@@ -36,8 +36,13 @@ const VUMeter: React.FC<{ analyzer: AnalyserNode | null }> = ({ analyzer }) => {
 const ChannelStrip: React.FC<{ 
   track: Track, 
   allTracks: Track[],
-  isMaster?: boolean
-}> = ({ track, allTracks, isMaster = false }) => {
+  isMaster?: boolean,
+  onOpenPlugin?: (trackId: string, p: PluginInstance) => void,
+  onToggleBypass?: (trackId: string, pluginId: string) => void,
+  onRemovePlugin?: (trackId: string, pluginId: string) => void,
+  onDropPlugin?: (trackId: string, type: PluginType, metadata?: any) => void,
+  onRequestAddPlugin?: (trackId: string, x: number, y: number) => void
+}> = ({ track, allTracks, isMaster = false, onOpenPlugin, onToggleBypass, onRemovePlugin, onDropPlugin, onRequestAddPlugin }) => {
   
   const { updateTrack } = useDAW();
   
@@ -63,22 +68,62 @@ const ChannelStrip: React.FC<{
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault(); 
     e.stopPropagation();
-    if (e.dataTransfer.types.includes('trackid')) {
+    if (e.dataTransfer.types.includes('application/nova-plugin') || e.dataTransfer.types.includes('pluginid')) {
         setIsDragOver(true);
-        e.dataTransfer.dropEffect = 'move';
+        e.dataTransfer.dropEffect = 'copy';
     }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    
+    const pluginType = e.dataTransfer.getData('pluginType') as PluginType;
+    if (pluginType && onDropPlugin) {
+        onDropPlugin(track.id, pluginType);
+    }
+  };
+
+  const handleFXClick = (e: React.MouseEvent, p: PluginInstance) => {
+    e.stopPropagation();
+    onOpenPlugin?.(track.id, p);
+  };
+
+  const handleEmptySlotClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onRequestAddPlugin) onRequestAddPlugin(track.id, e.clientX, e.clientY);
   };
 
   return (
     <div 
         onDragOver={handleDragOver}
         onDragLeave={() => setIsDragOver(false)}
+        onDrop={handleDrop}
         className={`flex-shrink-0 bg-[#0c0e12] border-r border-white/5 flex flex-col h-full ${isMaster ? 'w-64 border-l-2 border-cyan-500/20' : 'w-44'} ${isDragOver ? 'bg-cyan-500/20' : ''}`}
     >
       
-      {/* Empty Space where rack was */}
-      <div className="h-40 bg-black/20 border-b border-white/5 flex items-center justify-center text-slate-700 text-[8px] font-mono">
-         RACK EMPTY
+      {/* Plugin Rack */}
+      <div className="h-40 bg-black/20 border-b border-white/5 p-2 space-y-1.5 overflow-y-auto custom-scroll" onClick={handleEmptySlotClick}>
+         {track.plugins.length === 0 && (
+             <div className="h-full flex items-center justify-center text-slate-700 text-[8px] font-mono pointer-events-none">
+                EMPTY RACK
+             </div>
+         )}
+         {track.plugins.map(p => (
+          <div key={p.id} className="relative group/fxslot w-full h-8 mb-1 fx-slot">
+            <button 
+              onClick={(e) => handleFXClick(e, p)}
+              className={`w-full h-full bg-black/40 rounded border border-white/5 text-[9px] font-black hover:border-cyan-500/40 transition-all px-2 text-left truncate flex items-center pr-12 ${p.isEnabled ? 'text-cyan-400' : 'text-slate-600'}`}
+            >
+               {p.name || p.type}
+            </button>
+            <div className="absolute right-1 top-0 bottom-0 flex items-center space-x-1">
+               <button onClick={(e) => { e.stopPropagation(); onToggleBypass?.(track.id, p.id); }} className={`w-5 h-5 rounded flex items-center justify-center transition-all ${p.isEnabled ? 'bg-cyan-500/20 text-cyan-400' : 'bg-white/5 text-slate-600'}`}><i className="fas fa-power-off text-[7px]"></i></button>
+            </div>
+            <button onClick={(e) => { e.stopPropagation(); onRemovePlugin?.(track.id, p.id); }} className="delete-fx absolute -right-2 top-0 bottom-0 w-6 bg-red-500/80 text-white flex items-center justify-center opacity-0 group-hover/fxslot:opacity-100 transition-opacity z-10"><i className="fas fa-times text-[8px]"></i></button>
+          </div>
+        ))}
       </div>
 
       {/* CONTROLS */}
@@ -124,15 +169,21 @@ const ChannelStrip: React.FC<{
 const MixerView: React.FC<{ 
   tracks: Track[], 
   onUpdateTrack: (t: Track) => void, 
-  onAddBus?: () => void
-}> = ({ tracks, onAddBus }) => {
-  const audioTracks = tracks.filter(t => t.type === TrackType.AUDIO || t.type === TrackType.SAMPLER || t.type === TrackType.MIDI || t.type === TrackType.DRUM_RACK);
+  onAddBus?: () => void,
+  onOpenPlugin?: (tid: string, p: PluginInstance) => void, 
+  onToggleBypass?: (tid: string, pid: string) => void, 
+  onRemovePlugin?: (tid: string, pid: string) => void, 
+  onDropPluginOnTrack?: (tid: string, type: PluginType, metadata?: any) => void, 
+  onRequestAddPlugin?: (tid: string, x: number, y: number) => void
+}> = ({ tracks, onAddBus, onOpenPlugin, onToggleBypass, onRemovePlugin, onDropPluginOnTrack, onRequestAddPlugin }) => {
+  const audioTracks = tracks.filter(t => t.type === TrackType.AUDIO || t.type === TrackType.SAMPLER || t.type === TrackType.MIDI || t.type === TrackType.DRUM_RACK || t.type === TrackType.MELODIC_SAMPLER || t.type === TrackType.DRUM_SAMPLER);
   const busTracks = tracks.filter(t => t.type === TrackType.BUS && t.id !== 'master');
+  const sendTracks = tracks.filter(t => t.type === TrackType.SEND);
   const masterTrack = tracks.find(t => t.id === 'master');
 
   return (
     <div className="flex-1 flex overflow-x-auto bg-[#08090b] custom-scroll h-full snap-x snap-mandatory">
-      {audioTracks.map(t => <div key={t.id} className="snap-start"><ChannelStrip track={t} allTracks={tracks} /></div>)}
+      {audioTracks.map(t => <div key={t.id} className="snap-start"><ChannelStrip track={t} allTracks={tracks} onOpenPlugin={onOpenPlugin} onToggleBypass={onToggleBypass} onRemovePlugin={onRemovePlugin} onDropPlugin={onDropPluginOnTrack} onRequestAddPlugin={onRequestAddPlugin} /></div>)}
       
       <div className="flex flex-col items-center justify-center px-2 border-r border-white/5 min-w-[60px]">
          <button onClick={onAddBus} className="w-12 h-12 rounded-2xl border border-dashed border-amber-500/30 text-amber-500 hover:bg-amber-500/10 flex items-center justify-center">
@@ -140,10 +191,13 @@ const MixerView: React.FC<{
          </button>
       </div>
 
-      {busTracks.map(t => <div key={t.id} className="snap-start"><ChannelStrip track={t} allTracks={tracks} /></div>)}
+      {busTracks.map(t => <div key={t.id} className="snap-start"><ChannelStrip track={t} allTracks={tracks} onOpenPlugin={onOpenPlugin} onToggleBypass={onToggleBypass} onRemovePlugin={onRemovePlugin} onDropPlugin={onDropPluginOnTrack} onRequestAddPlugin={onRequestAddPlugin} /></div>)}
       
+      <div className="w-4 bg-black/30 border-r border-white/5" />
+      {sendTracks.map(t => <div key={t.id} className="snap-start"><ChannelStrip track={t} allTracks={tracks} onOpenPlugin={onOpenPlugin} onToggleBypass={onToggleBypass} onRemovePlugin={onRemovePlugin} onDropPlugin={onDropPluginOnTrack} onRequestAddPlugin={onRequestAddPlugin} /></div>)}
+
       <div className="w-10 bg-black/50 border-r border-white/5" />
-      {masterTrack && <div className="snap-start"><ChannelStrip track={masterTrack} allTracks={tracks} isMaster={true} /></div>}
+      {masterTrack && <div className="snap-start"><ChannelStrip track={masterTrack} allTracks={tracks} isMaster={true} onOpenPlugin={onOpenPlugin} onToggleBypass={onToggleBypass} onRemovePlugin={onRemovePlugin} onDropPlugin={onDropPluginOnTrack} onRequestAddPlugin={onRequestAddPlugin} /></div>}
     </div>
   );
 };

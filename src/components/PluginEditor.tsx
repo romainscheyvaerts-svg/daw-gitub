@@ -1,8 +1,8 @@
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { PluginInstance, Track } from '../types';
 import { audioEngine } from '../engine/AudioEngine';
-import { AutoTuneUI } from '../plugins/AutoTunePlugin';
+import { AutoTuneUI } from '../plugins/AutoTunePlugin'; // Corrected Import
 import { ProfessionalReverbUI } from '../plugins/ReverbPlugin';
 import { VocalCompressorUI } from '../plugins/CompressorPlugin';
 import { SyncDelayUI } from '../plugins/DelayPlugin';

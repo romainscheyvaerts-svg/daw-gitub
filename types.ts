@@ -7,7 +7,9 @@ export enum TrackType {
   BUS = 'BUS',
   SEND = 'SEND',
   SAMPLER = 'SAMPLER',
-  DRUM_RACK = 'DRUM_RACK'
+  DRUM_RACK = 'DRUM_RACK',
+  DRUM_SAMPLER = 'DRUM_SAMPLER',
+  MELODIC_SAMPLER = 'MELODIC_SAMPLER'
 }
 
 export type ViewType = 'ARRANGEMENT' | 'MIXER' | 'AUTOMATION' | 'PIANO_ROLL';
